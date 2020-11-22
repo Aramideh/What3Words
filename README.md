@@ -58,7 +58,7 @@ for convinence please copy the files in the specified directories.
  
 A short demo is uploaded to the youtube. watch(https://youtu.be/wEV8YJlLVYc)
 
-More technical information about the plugin is in the wiki page of this repository.(https://github.com/Aramideh/What3Words/wiki)
+### More technical information about the plugin is in the wiki page of this repository.(https://github.com/Aramideh/What3Words/wiki)
 
  
 ### Author Notes
