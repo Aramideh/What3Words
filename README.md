@@ -53,6 +53,9 @@ for convinence please copy the files in the specified directories.
 
  DONE! Enjoy!
  
+A short demo is uploaded to the youtube. watch(https://youtu.be/wEV8YJlLVYc)
+More information about the plugin is in the wiki page of this repository.
+
  
 ### Author Notes
 
