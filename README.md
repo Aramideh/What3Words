@@ -45,7 +45,7 @@ for convinence please copy the files in the specified directories.
 ```
 * Get your API key from What3Words Developers site, and put the key in  api_key propery
 
-* Add below code to the gui.xml if the Application
+* Add below code to the gui.xml of the Application
 
 ```
 	<dock name="top">
