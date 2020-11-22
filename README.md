@@ -3,7 +3,7 @@
 ### Introduction
 
 
-This example illustrates the implementation What3Words Java API for GE Smallworld.
+This example illustrates the implementation of What3Words' Java API for GE Smallworld.
 
 For More information on What3Words please refer to What3Words(https://what3words.com)
 
@@ -11,7 +11,7 @@ For More information on What3Words please refer to What3Words(https://what3words
 
 
 This modules uses the Magik-Java Interoperability, a supported mechanism to call code written in Java™ from GE Smallworld. This provides 
-an efficient way of exposing Java to Magik, allowing access to existing Java code and third-party libraries written in Java. (GE Documentation )
+an efficient way of exposing Java to Magik, allowing access to existing Java code and third-party libraries written in Java.
 
 
 ### Getting Started
@@ -40,7 +40,7 @@ for convinence please copy the files in the specified directories.
 
 
 ```
-* Aquire  your API key from What3Words Developers site, and put the value at=> 	<property name="api_key" value="Your_API_KEY" />
+* Get your API key from What3Words Developers site, and put the key in => 	<property name="api_key" value="Your_API_KEY" />
 
 * Add below code to the gui.xml if the Application
 
