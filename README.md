@@ -13,6 +13,9 @@ For More information on What3Words please refer to What3Words(https://what3words
 This modules uses the Magik-Java Interoperability, a supported mechanism to call code written in Java™ from GE Smallworld. This provides 
 an efficient way of exposing Java to Magik, allowing access to existing Java code and third-party libraries written in Java.
 
+Project is defined in two parts, one, java module part which is used to impelement the what3words class and the magik part which the plugin is implemented.
+Java class is available at (https://github.com/Aramideh/What3Words/blob/main/Module/Java/Java%20Project/src/com/aramideh/sadeq/what3words/sw_what3words.java)
+
 
 ### Getting Started
 
@@ -54,7 +57,8 @@ for convinence please copy the files in the specified directories.
  DONE! Enjoy!
  
 A short demo is uploaded to the youtube. watch(https://youtu.be/wEV8YJlLVYc)
-More information about the plugin is in the wiki page of this repository.
+
+More technical information about the plugin is in the wiki page of this repository.
 
  
 ### Author Notes
