@@ -1,0 +1,113 @@
+#% text_encoding = iso8859_1
+##-----------------------------------------------------------------------------------------------
+## What3Words Smallworld GE Implementation
+## Copyright (C) 2020 Sadeq Aramideh
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http:##www.gnu.org/licenses/>.
+##
+## You may contact Sadeq Aramideh at Sadegh.a@gmail.com
+##-----------------------------------------------------------------------------------------------
+
+_package sw
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_GenericError|,
+    :error,
+    {:|Error_Message|},
+    "error message raised by what3words API is #1"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadCoordinates|,
+    :error,
+    {:|Latitude| , :|Longitude| , :|Error_Message|},
+    "Error for encoding on latitude #1 and longitude #2 , error message raised by what3words API is #3"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadLanguage|,
+    :error,
+    {:|Error_Message| , :|Language|},
+    "Error on getting what3words for language #1, error message raised by what3words API is #2"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_InternalServerError|,
+    :error,
+    {:|Error_Message|},
+    "Internal Server Error detected, error message raised by what3words API is #1"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_NetworkError|, 
+    :error, 
+    {:|Error_Message|},
+    "Network issue detected, error message raised by what3words API is #1"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadWords|, 
+    :error, 
+    {  :|Words| ,:|Error_Message|},
+    "Decoding error on words #1, error message raised by what3words API is #2"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadClipToCircle|, 
+    :error, 
+    {:|Error_Message|},
+    "error on get_suggestion method, error message raised by what3words API is #1"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadClipToBoundingBox|, 
+    :error, 
+    {:|Error_Message|},
+    "error on get_suggestion method, error message raised by what3words API is #1"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadClipToCountry|, 
+    :error, 
+    {:|Error_Message|},
+    "error on get_suggestion method, error message raised by what3words API is #1"
+)
+$
+
+
+_pragma(classify_level=basic)
+condition.define_condition(:|w3w_BadClipToPolygon|, 
+    :error, 
+    {:|Error_Message|},
+    "error on get_suggestion method, error message raised by what3words API is #1"
+)
+$

@@ -1,0 +1,188 @@
+#% text_encoding = iso8859_1
+##-----------------------------------------------------------------------------------------------
+## What3Words Smallworld GE Implementation
+## Copyright (C) 2020 Sadeq Aramideh
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http:##www.gnu.org/licenses/>.
+##
+## You may contact Sadeq Aramideh at Sadegh.a@gmail.com
+##-----------------------------------------------------------------------------------------------
+
+
+_package user
+
+
+remex(:w3w_info_widndow)
+$
+
+_pragma(classify_level=advanced)
+def_slotted_exemplar(:w3w_info_widndow,
+{
+    {:frame,_unset},
+    {:top_container , _unset }
+}
+)
+$
+
+_pragma(classify_level=basic)
+_method w3w_info_widndow.new()
+
+    ## Create and return a new dialog
+    .frame << borderless_frame.new( _unset ,:width , 30 , :height , 50 )
+	
+    .top_container << l_con << sw_canvas_container.new( .frame, 2 , 1  ,
+                                                       # :width, 80, :height, 20 ,
+                                                        :outer_spacing,     sw_item_base.default_outer_border_spacing,
+                                                        :left_spacing,      2,
+                                                        :right_spacing,      2,
+                                                        :top_spacing,      3,
+                                                        :bottom_spacing,      0,
+                                                        :row_spacing,       12,
+                                                        :row_resize_values, { 1 } )
+
+
+	# A container with coloured border and background
+	l_border_con << sw_border_container.new( l_con, 1,  _unset ,
+						:min_width, 24,
+						:min_height, 24 )
+		
+	a_colour << colour.new_with_properties(:value, "696969") #colour.called(:khaki)
+	background_colour << a_colour.darken_by( 0.5 )
+	border_style << line_style.new_with_properties( :foreground_colour, a_colour )
+		
+	l_border_con.colour << background_colour
+    l_border_con.border_line_style << border_style
+        
+
+	l_module << sw_module_manager.module( :what3words_plugin)
+	l_image_path <<  system.pathname_down( l_module.full_directory, "resources", "base", "bitmaps", "w3w_logo.png" )
+                                        
+	sw_image_item.new( l_border_con, _unset,
+					       :filename, l_image_path,
+                           :mode, :centre )
+                           #:resize? , _true )
+
+    sw_text_item.new( l_border_con,
+                  :model, _self,
+                  #:incremental_change_selector, :filter_examples|()|,
+                  :editable? , _false ,
+                  :min_width, 200,
+                  :prompt_text, "What3Words",
+                  :identifier, :w3w_qurey_result )
+                  
+
+    sw_button_item.new( l_border_con,
+                  :image, {:copy, :ui_resources},
+                  :model, _self,
+                  :selector, :copy_w3w|()|,
+                  :left_spacing, 10,
+                  :right_spacing, 5,
+                  :show_outer_border? , _true ,
+                  :tooltip, "Copy What3Words" )
+                  
+                  
+    l_module << sw_module_manager.module( :ui_resources)
+    l_image_path <<  system.pathname_down( l_module.full_directory, "resources", "base", "bitmaps", "down.png" )
+                                                      
+    sw_image_item.new( l_con, _unset,
+                                         :filename, l_image_path,
+                                         :mode, :centre )
+                                         #:resize? , _true )
+
+
+    >> _self
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_private _method w3w_info_widndow.wm_clipboard
+	##
+	## Returns a handle on the frame to use as the Window Manager's
+	## clipboard. The clipboard's content can be set via the
+	## message :clipboard_text<<
+	## 
+
+	# Try to get hold of a frame to return.
+	_for an_app _over smallworld_product.applications()
+	_loop
+		_if (candidate << an_app.top_frame) _isnt _unset
+		_then
+			# If the candidate is active, return it. This one will do for
+			# the clipboard
+			_if candidate.active?
+			_then
+				_return candidate
+			_endif
+		_endif
+	_endloop
+
+	# None of the candidates was up and running. Just return one of
+	# the candidates.
+	>> candidate
+_endmethod
+$
+
+
+_pragma(classify_level=restricted)
+_method w3w_info_widndow.copy_w3w()
+    ##  Function: 
+    ## Arguments: 
+    ##   Returns: 
+    #
+    _self.wm_clipboard.clipboard_text << .top_container.get_item(:w3w_qurey_result).value.write_string
+
+_endmethod
+$
+
+_pragma(classify_level=basic)
+_method w3w_info_widndow.show(  words ,_optional a_coord)
+
+    .frame.make_visible()   
+
+    _local text_box << .top_container.get_item(:w3w_qurey_result)
+    text_box .value << words
+    _if a_coord _isnt _unset 
+    _then 
+        .frame.position <<  a_coord #pixel_coordinate.new( x, y )
+     _endif    
+    # Display the frame
+    .frame.active? << _true
+
+    #.frame.activate()
+    #c.draw_text( text_style, 50,50, "Sample text in default style" )
+
+    #a_frame.realise()
+    #a_frame.unrealise() 
+_endmethod 
+$
+
+_pragma(classify_level=basic)
+_method w3w_info_widndow.set_position( a_pixel_coord)
+    .frame.position <<  a_pixel_coord 
+_endmethod 
+$
+
+_pragma(classify_level=basic)
+_method w3w_info_widndow.hide()
+    .frame.hide()
+_endmethod 
+$
+
+#_block 
+#    ww << w3w_info_widndow.new()
+#    ww.show("","duh!")
+# _endblock
+#$
+

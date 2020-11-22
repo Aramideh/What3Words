@@ -1,0 +1,11 @@
+what3words_plugin 1
+
+description
+	What3Words Smallworld Implementation
+end
+
+requires_java
+	swj_magik_what3words
+end
+
+language en_gb

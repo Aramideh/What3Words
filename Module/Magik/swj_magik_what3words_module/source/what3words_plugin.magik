@@ -1,0 +1,1064 @@
+#% text_encoding = iso8859_1
+##-----------------------------------------------------------------------------------------------
+## What3Words Smallworld GE Implementation
+## Copyright (C) 2020 Sadeq Aramideh
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http:##www.gnu.org/licenses/>.
+##
+## You may contact Sadeq Aramideh at Sadegh.a@gmail.com
+##-----------------------------------------------------------------------------------------------
+
+_package user
+$
+
+
+remex(:what3words_plugin)
+$
+$
+
+
+_pragma(classify_level=basic, topic={what3words})
+def_slotted_exemplar(:what3words_plugin,
+	{
+		{ :w3w , _unset },
+		{ :history_manager,            _unset }, 
+		{ :thread_engine , _unset },
+		{ :current_mode,      _unset },
+		{ :interaction_modes, _unset },
+		{ :info_window, _unset }
+	},
+	{:plugin }) 
+$
+
+
+
+_pragma(classify_level=basic, topic={what3words})
+what3words_plugin.define_shared_constant( :databus_producer_data_types,
+                                                     {
+							     ##
+							     ## :goto_request
+							     ##
+							     ## Request to goto spatial object
+							     ##
+							     :goto_request
+                                                     },
+:public )
+$
+
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+## API KEY for the What3words requests, you have to request an API KEY to use what3words, please refer to 
+## https://developer.what3words.com/
+##
+what3words_plugin.def_property( :api_key,
+				   :type, :string)
+$
+
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+## Two letter code of Language in which what3words works. For a list of all the languages please check
+## waht3words.available_languages() method. Default value is en for Eglish language. 
+##
+what3words_plugin.def_property( :language,
+				   :type, :string ,
+				   :default_value, "en" )
+$
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+## Self explanatory property. When presented with a 3 word address that may be incorrectly entered, 
+## AutoSuggest returns a list of potential correct 3 word addresses.
+## maximum_number_of_auto_suggestions propery controls the maximum number of the suggestion that is returned to the user.
+##
+what3words_plugin.def_property( :maximum_number_of_auto_suggestions,
+				   :type, :integer ,
+				   :default_value, 10 )
+$
+
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+## Limits the autosuggestion result to the defined countries, for example if the value for clip_to_country is "GB,FR"
+## then the result of the suggesions would be limited to United Kingdom and the France
+##
+what3words_plugin.def_property( :clip_to_country,
+				   :type, :string)
+$
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+## If true , a seperate window on the map view will appear to display the what3words info, 
+## while pressing enter on suggesions or in interaction mode
+##
+what3words_plugin.def_property( :use_floating_info_window,
+				   :type, :boolean ,
+				   :default_value, _false )
+$
+
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+##
+## Intercation name for Address Inspector
+##
+what3words_plugin.define_shared_constant(:address_inspector_interaction_name,
+	##   Remarks: 
+	##   Returns: 
+	##
+	:what3words_address_inspector
+	,
+:private)
+$
+
+
+_pragma(classify_level=advanced, topic={what3words})
+what3words_plugin.define_shared_constant(:message_accessor,
+	##   Remarks: 
+	##   Returns: 
+	##
+	message_handler.new(:what3words_plugin),
+:private)
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+what3words_plugin.define_shared_constant(:what3words_separator,
+	##   Remarks: This should ****NOT**** be changed.
+	##   Returns: 
+	##
+	%. ,
+:private)
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+what3words_plugin.define_shared_constant(:suggestions_separator,
+	##   Remarks: This should ****NOT**** be changed.
+	##   Returns: 
+	##
+	%& ,
+:private)
+$
+
+
+
+_pragma(classify_level=advanced, topic={what3words})
+	##   Remarks: This constant should be defined as a wgs84 coordinate system bounding box
+	##   Returns:  a bounding box to limit the suggestions , if unset then it will default to the 
+	##   database bounding box
+	##
+what3words_plugin.define_shared_constant(:w3w_suggestion_bounding_box,
+	_unset  , #
+:public)
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_private _method what3words_plugin.init( name, a_framework, _optional properties )
+	## 
+	## Initialises slots and dependencies.
+	##
+
+	_super.init( name, a_framework, properties )
+
+	.thread_engine << thread_engine.new() 
+	.thread_engine.add_dependent( _self, :run_status )
+	.history_manager << history_manager.new( "history_manager", a_framework )
+	.info_window << w3w_info_widndow.new()
+
+	_self.init_interaction_modes()
+
+	>> _self
+	
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.init_actions()
+	##
+	## Initialise actions
+	##
+
+	l_module_name << what3words_plugin.module_name
+	
+	_super.init_actions()
+
+
+
+	_self.add_action( sw_action.new( :language_chooser,
+					 :caption,         _self.message(:what3words_language_chooser),
+					 :tooltip,         _self.message(:what3words_language_chooser_tt),
+					 :short_help_text, _self.message(:what3words_language_chooser_sh),		
+					 :engine, _self,
+					 :items, _self.available_languages  ,
+					 :toolbar_control, :text_choice_item,
+					 :value_change_message, :language_changed|()|,
+					 :value,                "en,English"
+					  ))
+
+
+	 _self.add_action( sw_action.new(:what3words_address_inspector,
+					  :caption,         _self.message(:what3words_address_inspector),
+					  :tooltip,         _self.message(:what3words_address_inspector_tt),
+					  :short_help_text, _self.message(:what3words_address_inspector_sh),	 
+					  :image, { "address_inspection", l_module_name  },
+					  :toolbar_control,      :image_toggle_item, 
+					  :engine,               _self,
+					  :value_change_message, :|inspect_what3words_address()| ,
+					  :value,                _false ) )
+
+
+	_self.add_action( sw_action.new( :use_map_extent,
+					 :caption,         _self.message(:map_extent),
+					 :tooltip,         _self.message(:map_extent_tt),
+					 :short_help_text, _self.message(:map_extent_sh),
+					 :image,                { :map_extent, l_module_name },
+					 :engine,               _self,
+					 :toolbar_control,      :image_toggle_item, 
+					 :value_change_message, :use_map_extent|()|,
+					 :value,                _true ) )
+
+
+	_self.add_action( sw_action.new(:geocode_address,
+					 #:caption,         _self.message(:geocode_address),
+					 :tooltip,         _self.message(:geocode_address_tt),
+					 :short_help_text, _self.message(:geocode_address_sh),
+					 :engine , _self ,
+					 :toolbar_control , {:text_item ,
+								 		:label , _self.message(:geocode_address) ,
+										:editable?, _true ,
+										:allow_keyboard_navigation? , _true ,
+										:display_length, 16 ,
+										:allow_input? , _true ,
+										:prompt_text, _self.message(:geocode_address),
+										:select_on_focus? , _true},
+					:activate_selector  , :|geocode_address()|,				
+					:incremental_change_message, :|geocode_address_item_incremental_change()|,	# to get the suggestions from the what3words api
+					:enabled?,_true ))
+							  
+					
+
+	 _self.add_action( sw_action.new( :geocode_address_btn,
+					 :caption,         _self.message(:geocode_address_search),
+					 :tooltip,         _self.message(:geocode_address_search_tt),
+					 :short_help_text, _self.message(:geocode_address_search_sh),
+					 :image,                { :run, :ui_resources },
+					 :engine,               _self,
+					 :toolbar_control,      :image_button_item, 
+					 :action_message, :geocode_address_btn|()|))
+					 
+
+
+	_self.add_action(sw_action.new(:previous,
+					 :caption, _self.message(:previous),
+					 :engine, _self,
+					 :enabled?, _true,
+					 :toolbar_control, :image_button_item,
+					 :action_message, :previous|()|,
+					 :image, { :back, :ui_resources },
+					 :tooltip, _self.message(:previous),
+					 :value, _true))
+	  
+
+
+  	_self.add_action(sw_action.new(:next,
+					 :caption, _self.message(:next),
+					 :engine, _self,
+					 :enabled?, _true,
+					 :toolbar_control, :image_button_item,
+					 :action_message, :next|()|,
+					 :image, { :forward, :ui_resources },
+					 :tooltip, _self.message(:next),
+					 :value, _true))
+					 
+					 
+					 
+
+	#_self.add_action( .thread_engine.action( :interrupt_background_task ) )
+	
+_endmethod 
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.manage_actions ()
+	## 
+	## Manage and check SELFs actions
+	##
+	
+	_self.action ( :next ).enabled? << .history_manager.peek_next() _isnt _unset 
+	_self.action ( :previous ).enabled? << .history_manager.peek_previous() _isnt _unset
+
+	
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_private _method what3words_plugin.init_interaction_modes()
+	## 
+	## Initiates What3Words Interactions
+	##
+	
+	ih << interaction_handler.new( :interaction_handler, _self )
+
+	.interaction_modes << property_list.new()
+
+	m << interaction_mode.new( _self.address_inspector_interaction_name, ih ,
+							   :prompt_string ,_self.message(:what3word_interaction_mode_prompt)) 	
+	m.one_shot? << _false 
+	
+	m.set_key_action( %escape, 0, :key_escape )
+	_self.add_zoom_and_pan_interaction_modes( m )
+	m.set_click_action( :left, 0, _self.address_inspector_interaction_name )
+	m.set_double_click_action( :left, 0, :double_click )
+	#m.set_key_action( %-, 0, :show_previous )
+	#m.set_key_action( %+, 0, :show_next )
+	#m.set_key_action( %return, 0, :select )
+
+	#unique cursor for the interaction mode
+	m.set_cursor( 0, "what3words", _self.module_name )
+	m.set_drag_cursor( 0, "hand", :ui_resources )
+	
+	# add event handler for action
+	m.add_event_handler( :action, _self, { :perform_safely|()|, :|handle_actions()| } )				
+
+	.interaction_modes[ _self.address_inspector_interaction_name] << m
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_private _method what3words_plugin.add_zoom_and_pan_interaction_modes( a_mode )
+	##
+	## Adds zoom and pan interaction modes to A_MODE
+	##
+	m << a_mode
+
+	_for i _over 0.upto(7)
+	_loop 
+		# click or drag MIDDLE mouse button to pan.
+		m.set_click_action( :middle, i, :pan )
+		m.set_drag_actions( :middle, i, { :start_pan, _unset, :end_pan, :change_to_pan  } )
+		m.set_xor_worker( _self, _unset, :middle, i )
+
+		m.set_click_action( :left, i, :pan )
+		m.set_drag_actions( :left, i, { :start_pan, _unset, :end_pan , :change_to_pan} )
+		_if i <> 2 _andif i <> 3
+		_then 
+			a_mode.set_xor_worker( _self, _unset,:left,i )
+		_endif		
+	_endloop 
+
+	# Redefine CTRL and CTRL+SHIFT accelerators
+	# CTRL to zoom in, SHIFT CTRL to zoom out
+	m.set_cursor( 2, "zoom_in", :interaction_handler )
+	m.set_cursor( 3, "zoom_out", :interaction_handler )
+	
+	m.set_drag_cursor( 2, "zoom_in", :interaction_handler )
+	m.set_drag_cursor( 3, "zoom_out", :interaction_handler )
+	
+	m.set_click_action( :left, 2, :zoom_in )
+	m.set_click_action( :left, 3, :zoom_out )
+	m.set_drag_actions( :left, 2, { _unset, _unset, :box_zoom_in , :change_from_pan} )
+	m.set_drag_actions( :left, 3, { _unset, _unset, :box_zoom_out , :change_from_pan} )
+	
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.handle_actions ( action_name , start_coord, end_coord, a_window )
+	
+	write( "handle_actions _method",%tab ,action_name,%tab,start_coord,%tab,end_coord,%tab,a_window )
+
+	_if action_name _is :what3words_address_inspector
+	_then
+			_self.background({:what3words_address_inspector_for_coordinate|()|, a_window , end_coord } )
+	_elif action_name _is :double_click		
+	_then 
+			# do something on double click
+	_elif action_name _is :key_escape
+	_then
+			_self.end_interaction_mode( :what3words_address_inspector )	
+	_else
+		_self.handle_pan_and_zoom( action_name, start_coord, end_coord, a_window )			
+	_endif
+
+_endmethod 
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.handle_pan_and_zoom( action_name, a_coord, end_coord, a_window )
+	## 
+	## Handle pan and zoom actions
+	##
+
+	a_map_gui_framework << _self.map_manager.map_gui_framework_for_window( a_window )
+	_if { :zoom_in, :zoom_out, :box_zoom_in, :box_zoom_out }.includes?( action_name )
+	_then
+		a_map_gui_framework.handle_zoom_action( action_name, a_coord, end_coord, a_window )
+	_elif {  :start_pan, :pan, :end_pan, :abort_pan , :change_to_pan, :change_from_pan }.includes?( action_name )
+	_then
+		a_map_gui_framework.handle_pan_action( action_name, a_coord, end_coord, a_window )
+	_endif 
+	
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.set_interaction_mode( mode_name )
+	##
+	## Start an interaction mode
+	##
+	_handling error _with _self.user_error_handler
+	_if ( mapman <<_self.map_manager ) _is _unset
+	_then
+		_return
+	_endif
+
+	_if .current_mode _isnt _unset
+	_then
+		_if .current_mode.name _is _self.address_inspector_interaction_name _andif
+			mode_name _is _self.address_inspector_interaction_name 
+		_then  
+			.current_mode.end_interaction()
+			.current_mode << _unset 
+			_return 
+		_endif
+		
+		.current_mode.end_interaction()
+	_endif
+
+	a_mode << .interaction_modes[ mode_name ]
+	.current_mode << a_mode
+	mapman.set_interaction_mode( a_mode )
+
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.end_interaction_mode( mode_name )
+	##
+	## End an interaction mode
+	##
+
+	#_self.action( mode_name ).value << _false 
+
+	_if mode_name _is _self.address_inspector_interaction_name
+	_then 
+		#_self.action(:what3words_address_inspector).set_image ( { :address_inspection_grey , _self.module_name } )
+		_self.action(:what3words_address_inspector).value << _false 
+	_endif 
+
+	.interaction_modes[ mode_name ].end_interaction()
+	
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.note_change( who, aspect _gather data )
+        ##
+        ## Responds to changes from thread_engine
+        ##
+
+		write(who, %tab,aspect,%tab,data )
+
+        _if who _is .thread_engine
+        _then
+                _if aspect _is :run_status
+                _then
+                        status << data[1]
+                        _if status _is :ready
+						_then
+							# Task Completed
+							# do something here or dont!
+                        _endif
+                _endif
+        _endif
+
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.inspect_what3words_address()
+	##  Function: Sets the Interaction mode
+	##  Arguments: 
+	##   Returns: 
+	# --- body 
+
+	_self.set_interaction_mode( _self.address_inspector_interaction_name )
+
+_endmethod
+
+
+_pragma(classify_level=advanced, topic={what3words})
+##
+## What3Words API coordinate system 
+## 
+##
+_pragma(classify_level=basic, topic={what3words})
+what3words_plugin.define_shared_constant(:LL_CS,
+	coordinate_system.new_proj_long_lat(:wgs84,:degree),
+	:private)
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.what3words_address_inspector_for_coordinate( window , a_coordinate )
+	
+	##  Function: Fetches What3Words for a coordinate and returns the result as a diplay a ballon on the map if the use_floating_info_window constant is true 
+	##  Arguments: 
+	##  Returns: 
+	
+	_handling error _with _self.user_error_handler
+
+	_dynamic !print_float_precision! << 12
+
+	# convert a_coordinate to longitude and latitude
+	_local transfom << transform.new_converting_cs_to_cs(  _self.current_coordinate_system  ,_self.LL_CS  )
+	_local ll_coord << a_coordinate.transformed ( transfom )
+
+	_local result << .w3w.encode( ll_coord.y , ll_coord.x ) 
+	
+	_self.application.update_statusbar( _self.map_manager.selection_statusbar_pane_name , :text, result )
+
+	_self.display_info_window(  a_coordinate  , result ,  window   )
+
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.map_manager
+	##  Function:  
+	##  Arguments: 
+	##  Returns: Map Manager
+	
+	>> _self.application.get_service_provider (:map_manager )
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.current_coordinate_system
+	##  Function:  
+	##  Arguments: 
+	##  Returns: Map Manager's Coordinate system
+	
+	>> _self.map_manager.current_map_view_coordinate_system
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.map_view
+	##  Function:  
+	##  Arguments: 
+	##  Returns: current Map View
+	
+	>> _self.databus_request_data( :active_map_view )
+	
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.interrupt_background_task()
+	## 
+	## Interrupt the background task
+	##
+
+	_if .thread_engine.running?()
+	_then
+		.thread_engine.interrupt_engine()
+	_endif 
+	
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.available_languages
+	##  Function:
+	##  Arguments: 
+	##   Returns: What3Words API's Available Languages
+	##
+	## Author's Note: 
+	## I had to use version 5.1.9 of Magik-java nteropreability, In this version the Object createMagikVector(String... Strings) werent implemented yet,
+	## I'm returning a string and then parsing it. Also couldnt return multiple results because of some
+	## technical issue on the java side
+	##
+	_handling error _with _self.user_error_handler
+
+	>> _if .w3w _isnt _unset 
+		   _then 
+				l_languages << .w3w.available_languages()
+				l_languages << l_languages.split_by(".")
+				>> l_languages
+			_else
+				>> { "en,English" }   
+			_endif 		
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.language_changed( a_value )
+	##  Function: Changes the Language of the WHat3Words API
+	##  Arguments: 
+	##  Returns: 
+	##
+	_handling error _with _self.user_error_handler
+
+	.w3w.set_language( a_value.split_by(",")[1] )
+
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.geocode_address_item_incremental_change( a_value )
+	##  Function:
+	##  Arguments: 
+	##  Returns: 
+	##
+	_if a_value.occurrences_of( _self.what3words_separator ) = 2 _andif
+		a_value.last = _self.what3words_separator _is _false
+	_then 
+		# stop the previous background operation before proceeding
+		_self.interrupt_query()
+
+		_self.get_suggestions( a_value )
+	_endif 	
+
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.interrupt_query()
+	##  Function: interrupts the query
+	##  Arguments: 
+	##  Returns: 
+	##
+	_if .thread_engine.running?()
+	_then
+		.thread_engine.interrupt_engine()
+	_endif 
+	
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.get_suggestions( a_value )
+	##  Function: 
+	##  Arguments: incomplete what3word 
+	##  Returns: Suggestions for the words
+	##
+	
+	l_method <<
+			_if _self.action(:use_map_extent).value
+			_then 
+				>> :do_get_db_boundary_limited_suggestions|()|
+			_else 
+				>> :do_get_suggestions|()|
+			_endif 
+
+	_self.background( l_method , a_value )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.do_get_suggestions( a_value )
+	##  Function: 
+	## Arguments: 
+	##   Returns: 
+	# --- body ---
+	_handling error _with _self.user_error_handler
+
+	l_suggestions << rope.new_from ( .w3w.get_suggestions( a_value , _self.maximum_number_of_auto_suggestions).split_by( _self.suggestions_separator) )
+
+	_self.action(:geocode_address).items << l_suggestions
+
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.do_get_db_boundary_limited_suggestions( a_value )
+	##  Function: Will find the suggestion for the current database boundary
+	## If w3w_suggestion_bounding_box constant is set then this method would use that bounding box,
+	## otherwise it would use the database world bounding box
+	## Arguments: 
+	##  Returns: 
+	# --- body ---
+
+	_handling error _with _self.user_error_handler
+
+	_dynamic !print_float_precision! << 12
+	
+	_if _self.w3w_suggestion_bounding_box	_isnt _unset 
+	_then 
+		l_bbox << _self.w3w_suggestion_bounding_box
+		l_vec << { l_bbox.bottom_left.y , l_bbox.bottom_left.x , l_bbox.top_right.y , l_bbox.top_right.x } 
+	_else	
+		l_bbox << gis_program_manager.cached_dataset(:gis).world.bounds
+
+		l_bottom_left_coord << l_bbox.bottom_left
+		l_top_right_coord <<  l_bbox.top_right
+	
+		# convert a_coordinate to longitude and latitude
+		l_transfom << transform.new_converting_cs_to_cs(  _self.current_coordinate_system  ,_self.LL_CS  )
+
+		l_bottom_left_coord_wgs << l_bottom_left_coord.transformed ( l_transfom )
+		l_top_right_coord_wgs << l_top_right_coord.transformed ( l_transfom )
+		
+		# bl_latitude , bl_longitude , tr_latitude , tr_longitude
+		l_vec << { l_bottom_left_coord_wgs.y , l_bottom_left_coord_wgs.x , l_top_right_coord_wgs.y , l_top_right_coord_wgs.x } 		
+	_endif 	
+
+	l_suggestions << rope.new_from ( .w3w.limit_suggestions_to_boundingbox( a_value , l_vec ,_self.maximum_number_of_auto_suggestions).split_by( _self.suggestions_separator) )
+
+	_self.action(:geocode_address).items << l_suggestions
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.do_get_current_map_view_boundary_limited_suggestions( a_value )
+	##  Function: will find the current map view boundary and limit the suggestions for it
+	##, this method wasn't used in production to simplify the UI and use only one button for
+	## map bounds, making to button one for database bounds and one for map view bounds probably 
+	## would make it more confusing to the user
+	## Arguments: 
+	##   Returns: 
+	# --- body ---
+
+	
+	_handling error _with _self.user_error_handler
+
+
+	_dynamic !print_float_precision! << 12
+
+	l_map_view << _self.map_view
+	l_bottom_left_coord << l_map_view.current_view_bounds.bottom_left
+	l_top_right_coord <<  l_map_view.current_view_bounds.top_right
+
+	# convert a_coordinate to longitude and latitude
+	l_transfom << transform.new_converting_cs_to_cs(  _self.current_coordinate_system  ,_self.LL_CS  )
+
+	
+	l_bottom_left_coord_wgs << l_bottom_left_coord.transformed ( l_transfom )
+	l_top_right_coord_wgs << l_top_right_coord.transformed ( l_transfom )
+	
+	# bl_latitude , bl_longitude , tr_latitude , tr_longitude
+	l_vec << { l_bottom_left_coord_wgs.y , l_bottom_left_coord_wgs.x , l_top_right_coord_wgs.y , l_top_right_coord_wgs.x } 
+
+	l_suggestions << rope.new_from ( .w3w.limit_suggestions_to_boundingbox( a_value , l_vec ,_self.maximum_number_of_auto_suggestions).split_by( _self.suggestions_separator) )
+
+	_self.action(:geocode_address).items << l_suggestions
+
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.geocode_address( a_value  ,_gather args)
+	##  Function: 
+	##  Arguments: 
+	##  Returns: 
+	# --- body ---
+	
+	 _if a_value.class_name _is :text_item
+	 _then 
+			# means user hitted enter, we can do 2 things , get the value and continue with the request or pull down the menu so user can select
+			# a value , I'm choosing the second option here because we providd a run button for user,dont want to make it a waste!
+			a_value.activate_pulldown_menu()
+			_return
+	_endif 					  
+	_self.background(:do!decode|()| , a_value )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.geocode_address_btn()
+	##  Function: 
+	## Arguments: 
+	##   Returns: 
+	# --- body ---
+	a_value << _self.action(:geocode_address).value
+	_self.background(:do!decode|()| , a_value )
+
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.do!decode ( a_value )
+	##  Function: 
+	## Arguments: 
+	##   Returns: 
+	
+	_handling error _with _self.user_error_handler
+
+	_if a_value.occurrences_of(%,) = 1
+	_then 
+		 a_value << a_value.split_by(",")[2]
+	_endif 	 
+
+	(l_latitude , l_longitude ) << .w3w.decode( a_value )
+
+	_dynamic !print_float_precision! << 12
+
+	# convert a_coordinate to map coordinate system
+	l_transfom << transform.new_converting_cs_to_cs(  _self.LL_CS , _self.current_coordinate_system )
+	l_coord << coordinate(l_longitude , l_latitude).transformed ( l_transfom )
+
+	l_bbox << bounding_box.new_centred (  l_coord.x , l_coord.y , 1000 , 1000 )
+
+	# go to the bounding box of the decoded what3words
+	#_self.map_manager.goto ( l_bbox )
+	_self.goto_spatial_context ( l_bbox )
+
+
+	# We are not wraping it with protection because we only want to store valid values
+	_self.store_state ( a_value )
+	_self.manage_actions()
+
+	# display it on map
+	_self.display_info_window( l_coord , a_value )
+
+_endmethod
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.goto_spatial_context( a_context, _optional in_new_window? )
+	## 
+	## Goto a_context in the main map
+	##
+
+	 _self.databus_make_data_available( :goto_request, { a_context, :new_window?, in_new_window? } )
+ 	
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.display_info_window(  a_coordinate  , words , _optional window   )
+	##  Function: Displays a Window on Map view with the what3words information
+	## Arguments: 
+	##   Returns: 
+	# --- body ---
+
+	_if ~_self.use_floating_info_window _then _return _endif 
+
+	l_window <<  window.default ( _self.map_view.window )
+
+	l_pixel_coord << l_window.pixel_for( a_coordinate  )
+	l_pixel_coord << l_pixel_coord- pixel_coordinate ( 117 , -112 )  # This needs to be changed, BAD Pogramming practice here!
+
+	.info_window.set_position ( l_pixel_coord )
+	.info_window.show( words )
+
+
+
+_endmethod
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.use_map_extent( enable? )
+	##  Function: Nothing Actually! 
+	##  Arguments: 
+	##  Returns: 
+	# --- body ---
+	
+		write("use_map_extent enable?" , %tab , enable? )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.background(p_action, _gather p_args)
+	##
+	## Runs method p_action with p_args on _self in a background thread
+
+	.thread_engine.run_engine( _thisthread.vm_priority - 1, _true, _self, p_action , _scatter p_args )
+
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.next( )
+	## 
+	## Returns Next What3Words in the History manager
+	##
+	##
+	_if (hm << .history_manager) _isnt _unset 
+	_then
+		hm.next ()
+		_if ( state << hm.current_state) _isnt _unset
+		_then
+			_self.restore_state ( state.deep_copy() )					
+		_endif
+	_endif
+	
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.previous()
+	## 
+	##
+	## Returns Previous What3Words in the History manager
+	##
+	_if (hm << .history_manager) _isnt _unset 
+	_then
+		hm.previous ()
+		_if ( state << hm.current_state) _isnt _unset
+		_then
+			_self.restore_state ( state.deep_copy() )
+		_endif 
+	_endif
+_endmethod
+$
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.store_state( l_value )
+	## 
+	## Stores the current state 
+	##
+	_if (hm << .history_manager) _isnt _unset 
+	_then 
+		_if hm.current_state _is _unset 
+		_then 
+			hm.add_state ( l_value )
+		_else 	
+			_if ~.history_manager.current_state.eq?( l_value )
+			_then 
+				hm.add_state ( l_value )
+			_endif 	
+		_endif 	
+	_endif 
+		
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.restore_state ( state )
+	## 
+	## Resstores the history Manager State 
+	##
+	_self.manage_actions ()
+	_self.action(:geocode_address).value << state.write_string
+	
+_endmethod 
+$
+
+
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.post_init_plugins()
+	##
+	## Called when all plug-ins have been loaded. Initialises the
+	## input plug-in.
+	##
+	#write( _self, %tab , _self.api_key ,%tab ,  _self.language )
+
+	_if .w3w _is _unset _andif _self.api_key _isnt _unset 
+	_then
+		
+		# initialize the what3words Jave Object
+		.w3w << what3words.new (  _self.api_key ,  _self.language )
+
+		_if _self.maximum_number_of_auto_suggestions _isnt _unset 
+		_then 
+			.w3w.set_maximum_number_of_auto_suggestions ( _self.maximum_number_of_auto_suggestions )
+		_endif 
+		
+		_if _self.clip_to_country _isnt _unset 
+		_then 
+			.w3w.set_clip_to_country ( _self.clip_to_country )
+		_endif 		
+		
+	_endif 
+
+	#_self.action(:language_chooser).value << "en,English"
+
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.post_activation()
+	## It is guaranteed that all GUI components will be realised.
+	_self.manage_actions()
+_endmethod
+$
+
+_pragma(classify_level=restricted, topic={what3words})
+_method what3words_plugin.message(id, _gather args)
+	##
+	##
+	##
+	_return _self.message_accessor.human_string(id, _unset, _scatter args)	
+_endmethod
+$
+
+
+
+
+##method new(arg1, optional arg2) in what3words
+
+##method encode(arg0,arg1) in what3words
+##method decode(arg0) in what3words
+##method get_suggestions(arg0, optional arg1) in what3words
+##method limit_suggestions_to_boundingbox(arg0,arg1, optional arg2) in what3words
+##method available_languages() in what3words
+
+#language 
+##method get_language() in what3words
+##method set_language(arg0) in what3words
+# maximum number of the suggestions
+##method get_maximum_number_of_auto_suggestions() in what3words
+##method set_maximum_number_of_auto_suggestions(arg0) in what3words
+# clip to country
+##method get_clip_to_country() in what3words
+##method set_clip_to_country(arg0) in what3words

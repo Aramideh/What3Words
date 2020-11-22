@@ -1,0 +1,38 @@
+#% text_encoding = iso8859_1
+##-----------------------------------------------------------------------------------------------
+## What3Words Smallworld GE Implementation
+## Copyright (C) 2020 Sadeq Aramideh
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http:##www.gnu.org/licenses/>.
+##
+## You may contact Sadeq Aramideh at Sadegh.a@gmail.com
+##-----------------------------------------------------------------------------------------------
+
+
+
+# You can override the below constant to limit the what3words auto suggesions results to a specific bounding box 
+
+
+_package user
+
+
+_pragma(classify_level=advanced)
+what3words_plugin.define_shared_constant(:w3w_suggestion_bounding_box,
+	##   Remarks: This constant should be defined as a wgs84 coordinate system bounding box
+	##   Returns:  a bounding box to limit the suggestions , if unset then it will default to the 
+	##   database bounding box
+	##
+	_unset  , # eg, bounding_box.new (0.0625934,52.1831409,0.2268539 , 52.2609947 )
+:public)
+$
